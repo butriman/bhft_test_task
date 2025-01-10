@@ -1,6 +1,6 @@
 CREATE TABLE raw.exchange_api_kline (
 	exchange varchar NOT NULL,
-	symbol varchar NOT NULL,
+	symbol varchar NULL,
 	time_frame varchar NOT NULL,
 	insert_ts numeric NOT NULL,
 	"data" jsonb NULL

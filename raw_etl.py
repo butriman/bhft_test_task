@@ -25,24 +25,30 @@ class ETLoader:
         print('ETLoader initialized!')
         return None
 
-    def raw_load_info(self, data: list):
+    def raw_load_info(self, data: dict):
         info_raw_tbl = sa.Table('exchange_api_instrument_info', self.raw_metadata)
         
         with self.db_engine.connect() as conn:
-            for row in data:
-                conn.execute(
-                    info_raw_tbl.insert(), {'exchange': 'BYBIT', 'insert_ts': row['time'], 'data': row}
-                )
+            conn.execute(
+                info_raw_tbl.insert(), {'exchange': 'BYBIT', 'insert_ts': data.get('time', 0), 'data': data}
+            )
             conn.commit()
         return None
     
     def raw_load_kline(self, data: list):
         kline_raw_tbl = sa.Table('exchange_api_kline', self.raw_metadata)
-
+        """
         with self.db_engine.connect() as conn:
             for row in data:
-                conn.execute(
-                    kline_raw_tbl.insert(), {'exchange': 'BYBIT', 'symbol': row['result']['symbol'], 'time_frame': 'D', 'insert_ts': row['time'], 'data': row}
-                )
+                if row:
+                    conn.execute(
+                        kline_raw_tbl.insert(), {'exchange': 'BYBIT', 'symbol': row.get('result', {}).get('symbol', None), 'time_frame': 'D', 'insert_ts': row.get('time', 0), 'data': row}
+                    )
+            conn.commit()
+        """
+        with self.db_engine.connect() as conn:
+            conn.execute(
+                kline_raw_tbl.insert(), [{'exchange': 'BYBIT', 'symbol': row.get('result', {}).get('symbol', None), 'time_frame': 'D', 'insert_ts': row.get('time', 0), 'data': row} for row in data if row]
+            )
             conn.commit()
         return None
