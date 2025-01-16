@@ -1,16 +1,13 @@
-from abc import ABC, abstractmethod
-from typing import Literal, TYPE_CHECKING
+from typing import Literal
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert, Insert
-from sqlalchemy.dialects._typing import _OnConflictWhereT, _OnConflictSetT
+from sqlalchemy.dialects._typing import _OnConflictWhereT
 import datetime
 import calendar
 import pandas as pd
 import numpy as np
 from pandas.io.sql import SQLTable
 
-if TYPE_CHECKING:
-    from exchange import Bybit
 
 
 class RawETLoader:
