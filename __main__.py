@@ -1,0 +1,55 @@
+from typing import Literal
+from exchange import Exchange, Bybit, Binance, Gateio, Kraken, Okx
+import pandas as pd
+import datetime
+from raw_etl import RawETLoader, DmETLoader
+ 
+
+
+def pipeline_launch(
+        mode: Literal['initial', 'incremental', 'custom'] = 'incremental', 
+        start_dt: datetime.datetime = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=1)
+    ):
+    raw_etl, dm_etl = RawETLoader(), DmETLoader()
+    exchange_list: list[Exchange] = [Bybit(), Binance(), Gateio(), Kraken(), Okx()]
+    
+    for exchange in exchange_list:
+        if mode == 'incremental':
+            start_dt = dm_etl.get_abs_values(exchange.name)['max_dt']- datetime.timedelta(days=2)
+        elif mode == 'initial':
+            start_dt = datetime.datetime(2025, 1, 1)
+        elif mode == 'custom':
+            start_dt = datetime.datetime(2025, 1, 1) if start_dt <= datetime.datetime(2025, 1, 1) else start_dt
+        # raw
+        kline_list = exchange.load_kline(mode='custom', start_dt=start_dt)  
+        raw_etl.info_insert(exchange.name, exchange.info_resp, exchange.info_ts)
+        raw_etl.kline_insert(exchange.name, kline_list, exchange.kline_ts)
+        # load from raw
+        pd_info = raw_etl.info_read(exchange.name, 'incremental', start_dt=start_dt)
+        pd_kline = raw_etl.kline_read(exchange.name, 'incremental', start_dt=start_dt)
+        # load to dm
+        tbl_name = 'dim_coin'
+        tbl_cols = dm_etl.get_tbl_cols(tbl_name)
+        dm_etl.tbl_load(tbl_name=tbl_name, df_tbl=pd_info[tbl_cols])
+
+        tbl_name = 'tfct_coin'
+        tbl_cols = dm_etl.get_tbl_cols(tbl_name)
+        dm_etl.tbl_load(tbl_name=tbl_name, df_tbl=pd_kline[tbl_cols])
+
+        tbl_name = 'tfct_exchange_rate'
+        tbl_cols = dm_etl.get_tbl_cols(tbl_name)
+        pd_rate: pd.DataFrame = pd_kline.merge(pd_info[['exchange', 'symbol', 'base_coin', 'quote_coin', 'insert_ts']], 'left', on=['exchange', 'symbol'])
+        non_usdt_coin_list = pd_rate[pd_rate['quote_coin'] != 'USDT']['quote_coin'].drop_duplicates(ignore_index=True).to_list()
+        pd_rate = pd_rate[(pd_rate['base_coin'].isin(non_usdt_coin_list) & (pd_rate['quote_coin'] == 'USDT')) | (pd_rate['quote_coin'].isin(non_usdt_coin_list) & (pd_rate['base_coin'] == 'USDT'))]
+        pd_rate['insert_ts'] = pd_rate[['insert_ts_x', 'insert_ts_y']].max(axis=1)
+        pd_rate = pd_rate[['exchange', 'symbol', 'oper_dt', 'base_coin', 'quote_coin', 'price_avg', 'insert_ts']]
+        pd_rate.loc[pd_rate['base_coin'] != 'USDT', 'coin'] = pd_rate['base_coin']
+        pd_rate.loc[pd_rate['quote_coin'] != 'USDT', 'coin'] = pd_rate['quote_coin']
+        pd_rate.loc[pd_rate['quote_coin'] == 'USDT', 'usdt_amt'] = pd_rate['price_avg']
+        pd_rate.loc[pd_rate['quote_coin'] != 'USDT', 'usdt_amt'] = 1.0 / pd_rate['price_avg']
+        pd_rate['rn'] = pd_rate.groupby([col for col in tbl_cols if col not in ['insert_ts', 'usdt_amt']])['insert_ts'].rank(method='first', ascending=False)
+        pd_rate = pd_rate[tbl_cols][pd_rate['rn'] == 1].reset_index(drop=True)
+        dm_etl.tbl_load(tbl_name=tbl_name, df_tbl=pd_rate[tbl_cols])
+ 
+if __name__ == "__main__":
+    pipeline_launch()
