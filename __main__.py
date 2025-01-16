@@ -15,7 +15,7 @@ def pipeline_launch(
     
     for exchange in exchange_list:
         if mode == 'incremental':
-            start_dt = dm_etl.get_abs_values(exchange.name)['max_dt']- datetime.timedelta(days=2)
+            start_dt = datetime.datetime.combine(dm_etl.get_abs_values(exchange.name)['max_dt'], datetime.datetime.min.time()) - datetime.timedelta(days=2)
         elif mode == 'initial':
             start_dt = datetime.datetime(2025, 1, 1)
         elif mode == 'custom':
@@ -52,4 +52,4 @@ def pipeline_launch(
         dm_etl.tbl_load(tbl_name=tbl_name, df_tbl=pd_rate[tbl_cols])
  
 if __name__ == "__main__":
-    pipeline_launch()
+    pipeline_launch(mode='incremental')
