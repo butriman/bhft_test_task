@@ -25,8 +25,6 @@ def pipeline_launch(
         mode: Literal['initial', 'incremental', 'custom'] = 'incremental', 
         start_dt: datetime.datetime = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=1)
     ):
-    print('pipeline_launch: ', f'{mode = }', f'{start_dt = }', '\n')
-    exit()
     raw_etl, dm_etl = RawETLoader(), DmETLoader()
     exchange_list: list[Exchange] = [Bybit(), Binance(), Gateio(), Kraken(), Okx()]
     
