@@ -4,12 +4,29 @@ import pandas as pd
 import datetime
 from raw_etl import RawETLoader, DmETLoader
  
+import re
+import argparse
+ 
+ 
+def dt_regex_type(arg_value, pat=re.compile(r"\b\d{4}-\d{2}-\d{2}\b")):
+    if not pat.match(arg_value):
+        raise argparse.ArgumentTypeError("Invalid value. Try mask YYYY-MM-DD")
+    return arg_value
 
 
+def createParser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-m', '--mode', nargs='?', default='incremental', choices=['initial', 'incremental', 'custom'])
+    parser.add_argument('-d', '--start_dt', nargs='?', default='2025-01-01', type=dt_regex_type)
+    return parser
+ 
+    
 def pipeline_launch(
         mode: Literal['initial', 'incremental', 'custom'] = 'incremental', 
         start_dt: datetime.datetime = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=1)
     ):
+    print('pipeline_launch: ', f'{mode = }', f'{start_dt = }', '\n')
+    exit()
     raw_etl, dm_etl = RawETLoader(), DmETLoader()
     exchange_list: list[Exchange] = [Bybit(), Binance(), Gateio(), Kraken(), Okx()]
     
@@ -50,6 +67,12 @@ def pipeline_launch(
         pd_rate['rn'] = pd_rate.groupby([col for col in tbl_cols if col not in ['insert_ts', 'usdt_amt']])['insert_ts'].rank(method='first', ascending=False)
         pd_rate = pd_rate[tbl_cols][pd_rate['rn'] == 1].reset_index(drop=True)
         dm_etl.tbl_load(tbl_name=tbl_name, df_tbl=pd_rate[tbl_cols])
- 
+
+
 if __name__ == "__main__":
-    pipeline_launch(mode='incremental')
+    parser = createParser()
+    namespace = parser.parse_args()
+ 
+    print(namespace, namespace.mode, namespace.start_dt, sep='\n')
+
+    pipeline_launch(mode=namespace.mode, start_dt=datetime.datetime.strptime(namespace.start_dt, '%Y-%m-%d'))
