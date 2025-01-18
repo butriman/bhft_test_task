@@ -2,6 +2,7 @@ from typing import Literal
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert, Insert
 from sqlalchemy.dialects._typing import _OnConflictWhereT
+import psycopg2
 import datetime
 import calendar
 import pandas as pd
@@ -16,7 +17,7 @@ class RawETLoader:
 
     def __init__(self) -> None:
         self.db_engine = sa.create_engine(
-            "postgresql+psycopg2://postgres:postgres@localhost:5432/bhft",  # не выношу креды отдельно, но по-хорошему надо
+            "postgresql+psycopg2://postgres:postgres@postgres:5432/bhft",  # не выношу креды отдельно, но по-хорошему надо
             connect_args={'options': '-csearch_path={}'.format(self.db_schema)}
         )
         self.metadata: sa.MetaData = sa.MetaData(schema=self.db_schema)
@@ -179,7 +180,7 @@ class DmETLoader:
 
     def __init__(self) -> None:
         self.db_engine = sa.create_engine(
-            "postgresql+psycopg2://postgres:postgres@localhost:5432/bhft",  # не выношу креды отдельно, но по-хорошему надо
+            "postgresql+psycopg2://postgres:postgres@postgres:5432/bhft",  # не выношу креды отдельно, но по-хорошему надо
             connect_args={'options': '-csearch_path={}'.format(self.db_schema)}
         )
         self.metadata: sa.MetaData = sa.MetaData(schema=self.db_schema)

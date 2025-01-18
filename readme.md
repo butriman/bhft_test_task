@@ -71,47 +71,39 @@ This project is organized into clear sections that reflect the ETL workflow:
 
 
 
-## Installation and Usage
+## Installation and Usage 
 
 **Prerequisites**  
-> - **Python 3.10+** (earlier versions may work, but are untested)  
-> - A **Postgres** database instance
-> - A configured **Superset** instance
+> - **Docker** 
 
 1. Clone or Download the repository:
    ```bash
    git clone https://github.com/butriman/bhft_test_task.git
    cd bhft_test_task
     ```
-2. Install Dependencies:
+2. Build and run containers:
     ```bash
-    pip install -r requirements.txt
+    docker compose build
+    docker compose up -d postgres superset
     ```
-    Make sure you have pandas, SQLAlchemy, and any other required libraries listed in requirements.txt
+    Make sure there are no Errors in logs (dashboard-import error is acceptable)
 
-3. Configure Database Connection
-
-    Postgres DB should be configured as:
-    ```bash
-    DB_HOST=localhost
-    DB_PORT=5432
-    DB_NAME=bhft
-    DB_USER=postgres
-    DB_PASS=postgres
-    ```
-    This part is hardcoded in a connection string for now
-
-4. Run the ETL Script
+3. Launch ETL-module using 
 
     ```bash
-    python main.py --mode initial
-    python main.py --mode incremental
-    python main.py --mode custom --start_dt 2025-01-05
+    docker compose run python-scripts python main.py -m initial
     ```
+    or 
+    ```bash
+    docker compose run python-scripts python main.py -m incremental
+    ```
+
+4. After script finishes, go to Superset UI http://127.0.0.1:8088/ and log in using *superset* (both login and pass). In case of failed dashboard import via CLI, use UI import to add config /dashboards/dashboard_spot_trade.zip 
+
 
 5. **Superset** Dashboard
 
-    Assuming **Superset** is already installed after importing config archive *dashboard_spot_trade.zip* (provided in *dashboard_files* folder), there will be a **Spot Trade Dashboard** ready to explore
+    **Spot Trade Dashboard** ready to explore
 
 ## Notes on Volume Conversion
 
@@ -120,5 +112,6 @@ There is a block in the project aimed at **converting the volume amount** (the p
 
 For future development:
 - **Fix** volume conversion  
-- **Containerize** the project  
+- **Containerize** the project
 - **Julia** port
+- Use **.env** files to avoid hardcoding connection strings and credentials
