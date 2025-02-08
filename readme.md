@@ -97,6 +97,17 @@ This project is organized into clear sections that reflect the ETL workflow:
     ```bash
     docker compose run python-scripts python main.py -m incremental
     ```
+    or (in case of loading particular exchanges' data)
+    ```bash
+    docker compose run python-scripts python main.py -e Bybit Binance
+    ```
+
+    Overall options:
+    ```bash
+    -m [{initial,incremental,custom}]
+    -d [START_DT]
+    -e [{Bybit,Binance,Gateio,Kraken,Okx} ...]
+    ```
 
 4. After script finishes, go to Superset UI http://127.0.0.1:8088/ and log in using *superset* (both login and pass). In case of failed dashboard import via CLI, use UI import to add config /dashboards/dashboard_spot_trade.zip 
 
