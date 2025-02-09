@@ -1,8 +1,9 @@
 from typing import Literal
 from exchange import Exchange, Bybit, Binance, Gateio, Kraken, Okx
 import pandas as pd
-import datetime
+import datetime, calendar
 from raw_etl import RawETLoader, DmETLoader
+from ccyconv import rates_process
  
 import re
 import argparse
@@ -52,15 +53,15 @@ def load(exchange: Exchange, start_dt: datetime.datetime, raw_etl: RawETLoader, 
     tbl_cols = dm_etl.get_tbl_cols(tbl_name)
     pd_rate: pd.DataFrame = pd_kline.merge(pd_info[['exchange', 'symbol', 'base_coin', 'quote_coin', 'insert_ts']], 'left', on=['exchange', 'symbol'])
     non_usdt_coin_list = pd_rate[pd_rate['quote_coin'] != 'USDT']['quote_coin'].drop_duplicates(ignore_index=True).to_list()
-    pd_rate = pd_rate[(pd_rate['base_coin'].isin(non_usdt_coin_list) & (pd_rate['quote_coin'] == 'USDT')) | (pd_rate['quote_coin'].isin(non_usdt_coin_list) & (pd_rate['base_coin'] == 'USDT'))]
-    pd_rate['insert_ts'] = pd_rate[['insert_ts_x', 'insert_ts_y']].max(axis=1)
-    pd_rate = pd_rate[['exchange', 'symbol', 'oper_dt', 'base_coin', 'quote_coin', 'price_avg', 'insert_ts']]
-    pd_rate.loc[pd_rate['base_coin'] != 'USDT', 'coin'] = pd_rate['base_coin']
-    pd_rate.loc[pd_rate['quote_coin'] != 'USDT', 'coin'] = pd_rate['quote_coin']
-    pd_rate.loc[pd_rate['quote_coin'] == 'USDT', 'usdt_amt'] = pd_rate['price_avg']
-    pd_rate.loc[pd_rate['quote_coin'] != 'USDT', 'usdt_amt'] = 1.0 / pd_rate['price_avg']
-    pd_rate['rn'] = pd_rate.groupby([col for col in tbl_cols if col not in ['insert_ts', 'usdt_amt']])['insert_ts'].rank(method='first', ascending=False)
-    pd_rate = pd_rate[tbl_cols][pd_rate['rn'] == 1].reset_index(drop=True)
+    pd_rate = rates_process(
+        pd_rate[(pd_rate['base_coin'].isin(non_usdt_coin_list) & (pd_rate['quote_coin'] == 'USDT')) | (pd_rate['quote_coin'].isin(non_usdt_coin_list) & (pd_rate['base_coin'] == 'USDT'))][['oper_dt', 'base_coin', 'quote_coin', 'symbol', 'price_avg']], 
+        non_usdt_coin_list, 
+        goal_coin='USDT'
+    )
+    pd_rate['insert_ts'] = calendar.timegm(datetime.datetime.now().timetuple()) * 1000
+    pd_rate['exchange'] = exchange.name
+    for _, row in pd_rate[pd_rate['conversion_path'].isnull()].iterrows():
+        print(f'Warning: convertion rate from {row["coin"]} to USDT not found for {row["exchange"]} ({row["oper_dt"]})')
     dm_etl.tbl_load(tbl_name=tbl_name, df_tbl=pd_rate[tbl_cols])
  
     

@@ -122,7 +122,7 @@ There is a block in the project aimed at **converting the volume amount** (the p
 > **Currently, this functionality is *not* fully implemented** according to the original request. For now, it only takes spot pairs with a **quote coin** ≠ **USDT** and uses the **quote coin/USDT** instrument (or **USDT/quote coin** if the first is not found) with a volume-weighted average price as the exchange rate. For pairs not found using this logic, there is a **USDT vs Quote** table in the Superset dashboard, allowing you to filter out such pairs by clicking on the **in_USDT** value (via dashboard cross-filtering).
 
 For future development:
-- **Fix** volume conversion  
-- **Containerize** the project
+- ~~**Fix** volume conversion~~
+- ~~**Containerize** the project~~
 - **Julia** port
 - Use **.env** files to avoid hardcoding connection strings and credentials
