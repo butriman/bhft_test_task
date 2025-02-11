@@ -2,8 +2,38 @@ from abc import ABC, abstractmethod
 from typing import Literal
 from json import JSONDecodeError
 import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+from urllib3.exceptions import InsecureRequestWarning
 import datetime
 import calendar
+
+
+def get_request(url: str, params: dict | None = None):
+    session = requests.Session()
+    requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+
+    retries = Retry(total=10,
+                    backoff_factor=1,
+                    #status_forcelist=[500, 502, 503, 504],
+                    #allowed_methods=frozenset(['GET'])
+    )
+
+    session.mount('http://', HTTPAdapter(max_retries=retries))
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+
+    if params:
+        response = session.get(
+            url=url,
+            params=params,
+            verify=False
+        )
+    else: 
+        response = session.get(
+            url=url,
+            verify=False
+        )
+    return response
 
 
 class Exchange(ABC):
@@ -75,7 +105,10 @@ class Bybit(Exchange):
         """
         url: str = self.url + self.endpoint_dict['info']
         try:
-            resp = requests.get(url=url, params={'category': self.category})
+            params={
+                'category': self.category
+            }
+            resp = get_request(url=url, params=params)  #requests.get(url=url, params={'category': self.category})
             if resp.ok:
                 self.info_resp = resp.json()
                 self.spot_coins = [[coin['symbol'], coin['baseCoin'], coin['quoteCoin'], coin['status']] for coin in resp.json()['result']['list']]
@@ -127,7 +160,7 @@ class Bybit(Exchange):
         if end_dt:
             params['end'] = calendar.timegm(end_dt.date().timetuple()) * 1000
         try:
-            resp = requests.get(url=url, params=params) 
+            resp = get_request(url=url, params=params)  #requests.get(url=url, params=params) 
             if resp.ok:
                 if any([resp.json()['retCode'] != 0, 
                         resp.json()['retMsg'] not in ['OK', 'success', 'SUCCESS', ''], 
@@ -214,7 +247,7 @@ class Binance(Exchange):
                 'showPermissionSets': 'false',
                 'symbolStatus': 'TRADING'
             }
-            resp = requests.get(url=url, params=params)
+            resp = get_request(url=url, params=params)  #requests.get(url=url, params=params)
             if resp.ok:
                 self.info_resp = resp.json()
                 self.spot_coins = [[coin['symbol'], coin['baseAsset'], coin['quoteAsset'], coin['status']] for coin in resp.json()['symbols']]
@@ -265,7 +298,7 @@ class Binance(Exchange):
         if end_dt:
             params['endTime'] = calendar.timegm(end_dt.date().timetuple()) * 1000
         try:
-            resp = requests.get(url=url, params=params) 
+            resp = get_request(url=url, params=params)  #requests.get(url=url, params=params) 
             if resp.ok:
                 self.kline_ts = calendar.timegm(datetime.datetime.strptime(resp.headers.get('Date', 'Thu, 01 Jan 1970 00:00:00 GMT'), '%a, %d %b %Y %H:%M:%S %Z').timetuple()) * 1000
                 return resp.json()
@@ -343,7 +376,7 @@ class Gateio(Exchange):
         """
         url: str = self.url + self.endpoint_dict['info']
         try:
-            resp = requests.get(url=url)
+            resp = get_request(url=url)  #requests.get(url=url)
             if resp.ok:
                 self.info_resp = resp.json()
                 self.spot_coins = [[coin['id'], coin['base'], coin['quote'], coin['trade_status']] for coin in resp.json()]
@@ -394,7 +427,7 @@ class Gateio(Exchange):
         if end_dt:
             params['to'] = calendar.timegm(end_dt.date().timetuple()) 
         try:
-            resp = requests.get(url=url, params=params) 
+            resp = get_request(url=url, params=params)  #requests.get(url=url, params=params) 
             if resp.ok:
                 self.kline_ts = int(int(resp.headers.get('X-Out-Time', 0)) / 1000)
                 return resp.json()
@@ -472,7 +505,7 @@ class Kraken(Exchange):
         """
         url: str = self.url + self.endpoint_dict['info']
         try:
-            resp = requests.get(url=url)
+            resp = get_request(url=url)  #requests.get(url=url)
             if resp.ok:
                 self.info_resp = resp.json()
                 self.spot_coins = [[coin_k, coin_val['base'], coin_val['quote'], coin_val['status']] for coin_k, coin_val in resp.json()['result'].items()]
@@ -508,7 +541,7 @@ class Kraken(Exchange):
         if start_dt:
             params['since'] = calendar.timegm(start_dt.date().timetuple()) 
         try:
-            resp = requests.get(url=url, params=params) 
+            resp = get_request(url=url, params=params)  #requests.get(url=url, params=params) 
             if resp.ok:
                 self.kline_ts = calendar.timegm(datetime.datetime.strptime(resp.headers.get('Date', 'Thu, 01 Jan 1970 00:00:00 GMT'), '%a, %d %b %Y %H:%M:%S %Z').timetuple()) * 1000
                 return resp.json()
@@ -585,7 +618,7 @@ class Okx(Exchange):
             params = {
                 'instType': 'SPOT'
             }
-            resp = requests.get(url=url, params=params)
+            resp = get_request(url=url, params=params)  #requests.get(url=url, params=params)
             if resp.ok:
                 self.info_resp = resp.json()
                 self.spot_coins = [[coin['instId'], coin['baseCcy'], coin['quoteCcy'], coin['state']] for coin in resp.json()['data']]
@@ -636,7 +669,7 @@ class Okx(Exchange):
         if end_dt:
             params['after'] = calendar.timegm(end_dt.date().timetuple()) * 1000
         try:
-            resp = requests.get(url=url, params=params) 
+            resp = get_request(url=url, params=params)  #requests.get(url=url, params=params) 
             if resp.ok:
                 self.kline_ts = calendar.timegm(datetime.datetime.strptime(resp.headers.get('Date', 'Thu, 01 Jan 1970 00:00:00 GMT'), '%a, %d %b %Y %H:%M:%S %Z').timetuple()) * 1000
                 return resp.json()
