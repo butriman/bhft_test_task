@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:16.6
+    container_name: bhft_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bhft
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db_init:/docker-entrypoint-initdb.d
+    ports:
+      - "5431:5432"
+
+  python-scripts:
+    build:
+      context: ./python_scripts
+      dockerfile: dockerfile
+    container_name: py_etl
+    depends_on:
+      - postgres
+
+  superset:
+    container_name: bhft_superset
+    depends_on:
+      - postgres
+    ports:
+      - "8088:8088"
+    environment:
+      DATABASE_URL: postgresql://superset_user:superset_pass@postgres:5432/superset_metadata
+      SUPERSET_ENV: production
+    build:
+      context: ./superset_config
+      dockerfile: dockerfile
+    command:
+      - /bin/bash
+      - -c
+      - |
+        superset db upgrade &&
+        superset fab create-admin --username superset --password superset --email admin@admin.com --firstname Admin --lastname User ||
+        echo 'Admin user may already exist, skipping...' ;
+        superset init &&
+        superset import-dashboards --path /dashboards/dashboard_spot_trade.zip --username superset ||
+        echo 'No dashboard file found, skipping import...' ;
+        superset run -h 0.0.0.0 -p 8088 --with-threads --reload --debug
+    volumes:
+      - ./dashboard_files:/dashboards
+      - ./superset_config:/app/pythonpath
+
+volumes:
+  db_data:
